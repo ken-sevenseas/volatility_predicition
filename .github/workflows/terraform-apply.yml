@@ -13,7 +13,7 @@ env:
 
 jobs:
   terraform:
-    if: github.repository != 'ken-sevenseas/volattility_prediction'
+    if: github.repository == 'ken-sevenseas/volattility_prediction'
     name: "Terraform Apply"
     runs-on: ubuntu-latest
     permissions:

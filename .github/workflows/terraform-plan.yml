@@ -11,7 +11,7 @@ env:
 
 jobs:
   terraform:
-    if: github.repository != 'hashicorp-education/GitHub_actions'
+    if: github.repository == 'ken-sevenseas/volattility_prediction'
     name: "Terraform Plan"
     runs-on: ubuntu-latest
     permissions:
