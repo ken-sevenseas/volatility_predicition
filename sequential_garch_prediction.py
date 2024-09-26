@@ -50,16 +50,15 @@ def fit_garch_model(returns, p=1, q=1):
     return model.fit(disp="off")
 
 
-def run_simulation(data, initial_balance=10000000, volatility_threshold=5):
+def run_simulation(
+    data, train_size_rate=0.8, initial_balance=10000000, volatility_threshold=5
+):
     """アルゴリズムトレードシミュレーション"""
     balance = initial_balance
     balance_history = []
     position = 0  # ロング: 100, ショート: -100
-    train_size_rate = []
 
-    train_size = int(len(data) * 0.8)
-    train_data = data.iloc[:train_size]
-    test_data = data.iloc[train_size:]
+    train_size = int(len(data) * train_size_rate)
 
     for i in range(train_size, len(data)):
         # リターンデータの取得とGARCHモデルフィッティング
@@ -120,10 +119,9 @@ def main():
     plot_returns(data)
 
     # シミュレーション実行
-    balance_history = run_simulation(data)
-
-    # パフォーマンス評価
-    plot_performance(balance_history)
+    for i in range(1, 10):
+        balance_history = run_simulation(data, i / 10)
+        plot_performance(balance_history)
 
 
 if __name__ == "__main__":
