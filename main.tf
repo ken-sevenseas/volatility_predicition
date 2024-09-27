@@ -95,14 +95,14 @@ resource "aws_instance" "my_instance" {
   }
 }
 
+# S3バケットの作成
 resource "aws_s3_bucket" "untusbacket" {
   bucket = "untusbacket"
-  acl    = "private"
 }
 
 # S3バケットのバージョニング設定
 resource "aws_s3_bucket_versioning" "untusbacket_versioning" {
-  bucket = aws_s3_bucket.untusbackett.id
+  bucket = aws_s3_bucket.untusbacket.id
 
   versioning_configuration {
     status = "Enabled"
