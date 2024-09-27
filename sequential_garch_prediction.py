@@ -24,7 +24,8 @@ def download_data(symbol, start_date, end_date):
 
 def upload_to_s3(local_file, bucket_name, s3_file_name):
     """ローカルファイルをS3にアップロード"""
-    s3 = boto3.client("s3")
+    session = boto3.Session(profile_name="dev")
+    s3 = session.client("s3")
     try:
         s3.upload_file(local_file, bucket_name, s3_file_name)
         print(f"Upload Successful: {s3_file_name}")
@@ -42,28 +43,31 @@ def zip_folder(folder_path, zip_name):
     return zip_file_path
 
 
-def plot_returns(data, file_name):
+def plot_returns(data, output_folder, file_name):
     """リターンとその自己相関のプロット"""
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
     plt.figure(figsize=(10, 6))
     plt.plot(data["Return"], label="Daily Returns")
     plt.title("Nikkei 225 Daily Returns")
     plt.xlabel("Date")
     plt.ylabel("Return")
-    plt.savefig(f"/tmp/{file_name}_returns.png")
+    plt.savefig(f"{output_folder}/{file_name}_returns.png")
 
     plt.figure(figsize=(10, 5))
     plot_acf(data["Return"], lags=30)
     plt.title("ACF of Nikkei 225 Daily Returns")
     plt.xlabel("Lag")
     plt.ylabel("Autocorrelation")
-    plt.savefig(f"/tmp/{file_name}_acf.png")
+    plt.savefig(f"{output_folder}/{file_name}_acf.png")
 
     plt.figure(figsize=(10, 5))
     plot_acf(data["Abs_Return"], lags=30)
     plt.title("ACF of Absolute Nikkei 225 Daily Returns")
     plt.xlabel("Lag")
     plt.ylabel("Autocorrelation")
-    plt.savefig(f"/tmp/{file_name}_abs_acf.png")
+    plt.savefig(f"{output_folder}/{file_name}_abs_acf.png")
     plt.close()
 
 
@@ -74,7 +78,11 @@ def fit_garch_model(returns, p=1, q=1):
 
 
 def run_simulation(
-    data, train_size_rate=0.8, initial_balance=10000000, volatility_threshold=5
+    data,
+    output_folder,
+    train_size_rate=0.8,
+    initial_balance=10000000,
+    volatility_threshold=5,
 ):
     """アルゴリズムトレードシミュレーション"""
     balance = initial_balance
@@ -101,15 +109,18 @@ def run_simulation(
     return pd.Series(balance_history, index=data.index[train_size:])
 
 
-def plot_performance(balance_history, file_name):
+def plot_performance(balance_history, output_folder, file_name):
     """資産推移のプロットとシャープレシオ、最大ドローダウンの計算"""
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
     plt.figure(figsize=(10, 6))
     plt.plot(balance_history, label="Total Assets")
     plt.title("Algorithmic Trading Simulation")
     plt.xlabel("Date")
     plt.ylabel("Assets (JPY)")
     plt.legend()
-    plt.savefig(f"/tmp/{file_name}.png")
+    plt.savefig(f"{output_folder}/{file_name}.png")
 
     # シャープレシオ計算
     risk_free_rate = 0.01  # 年率リスクフリーレート
@@ -129,26 +140,34 @@ def plot_performance(balance_history, file_name):
     plt.xlabel("Date")
     plt.ylabel("Drawdown Ratio")
     plt.legend()
-    plt.savefig(f"/tmp/{file_name}_drawdown.png")
+    plt.savefig(f"{output_folder}/{file_name}_drawdown.png")
     plt.close()
 
 
 def main():
     """メイン処理"""
+    output_folder = "/tmp/algorithmic_trading_results"
+    zip_file_name = "trading_results"
+
     # データ取得
     data = download_data("^N225", "2015-01-01", "2024-01-01")
     print(data.head())
 
     # リターンとそのプロット
-    bucket_name = "your-s3-bucket"
-    plot_returns(data, "nikkei225")
+    plot_returns(data, output_folder, "nikkei225")
 
     # シミュレーション実行
     for i in range(1, 10):
-        balance_history = run_simulation(data, i / 10)
+        balance_history = run_simulation(data, output_folder, i / 10)
         file_name = f"simulation_balance_history_{i/10}"
-        plot_performance(balance_history, file_name)
-        upload_to_s3(f"/tmp/{file_name}.png", bucket_name, f"{file_name}.png")
+        plot_performance(balance_history, output_folder, file_name)
+
+    # フォルダをZIPに圧縮
+    zip_file_path = zip_folder(output_folder, zip_file_name)
+
+    # ZIPファイルをS3にアップロード
+    bucket_name = "your-s3-bucket"
+    upload_to_s3(zip_file_path, bucket_name, f"{zip_file_name}.zip")
 
 
 if __name__ == "__main__":
