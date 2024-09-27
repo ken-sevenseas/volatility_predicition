@@ -94,3 +94,17 @@ resource "aws_instance" "my_instance" {
     Name = "my_ec2_instance"
   }
 }
+
+resource "aws_s3_bucket" "untusbacket" {
+  bucket = "untusbacket"
+  acl    = "private"
+}
+
+# S3バケットのバージョニング設定
+resource "aws_s3_bucket_versioning" "untusbacket_versioning" {
+  bucket = aws_s3_bucket.untusbackett.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
