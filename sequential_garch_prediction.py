@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import boto3
 import os
+import zipfile
 from statsmodels.graphics.tsaplots import plot_acf
 
 # 諸手数料の設定
@@ -139,7 +140,7 @@ def main():
     print(data.head())
 
     # リターンとそのプロット
-    bukcket_name = "untusbacket"
+    bucket_name = "your-s3-bucket"
     plot_returns(data, "nikkei225")
 
     # シミュレーション実行
@@ -147,6 +148,7 @@ def main():
         balance_history = run_simulation(data, i / 10)
         file_name = f"simulation_balance_history_{i/10}"
         plot_performance(balance_history, file_name)
+        upload_to_s3(f"/tmp/{file_name}.png", bucket_name, f"{file_name}.png")
 
 
 if __name__ == "__main__":
