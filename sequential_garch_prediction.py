@@ -3,6 +3,8 @@ from arch import arch_model
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import boto3
+import os
 from statsmodels.graphics.tsaplots import plot_acf
 
 # 諸手数料の設定
@@ -19,29 +21,49 @@ def download_data(symbol, start_date, end_date):
     return data.dropna()
 
 
-def plot_returns(data):
+def upload_to_s3(local_file, bucket_name, s3_file_name):
+    """ローカルファイルをS3にアップロード"""
+    s3 = boto3.client("s3")
+    try:
+        s3.upload_file(local_file, bucket_name, s3_file_name)
+        print(f"Upload Successful: {s3_file_name}")
+    except Exception as e:
+        print(f"Upload failed: {e}")
+
+
+def zip_folder(folder_path, zip_name):
+    """フォルダをZIPに圧縮"""
+    zip_file_path = f"{folder_path}/{zip_name}.zip"
+    with zipfile.ZipFile(zip_file_path, "w") as zipf:
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                zipf.write(os.path.join(root, file), file)
+    return zip_file_path
+
+
+def plot_returns(data, file_name):
     """リターンとその自己相関のプロット"""
     plt.figure(figsize=(10, 6))
     plt.plot(data["Return"], label="Daily Returns")
     plt.title("Nikkei 225 Daily Returns")
     plt.xlabel("Date")
     plt.ylabel("Return")
-    plt.legend()
-    plt.show()
+    plt.savefig(f"/tmp/{file_name}_returns.png")
 
     plt.figure(figsize=(10, 5))
     plot_acf(data["Return"], lags=30)
     plt.title("ACF of Nikkei 225 Daily Returns")
     plt.xlabel("Lag")
     plt.ylabel("Autocorrelation")
-    plt.show()
+    plt.savefig(f"/tmp/{file_name}_acf.png")
 
     plt.figure(figsize=(10, 5))
     plot_acf(data["Abs_Return"], lags=30)
     plt.title("ACF of Absolute Nikkei 225 Daily Returns")
     plt.xlabel("Lag")
     plt.ylabel("Autocorrelation")
-    plt.show()
+    plt.savefig(f"/tmp/{file_name}_abs_acf.png")
+    plt.close()
 
 
 def fit_garch_model(returns, p=1, q=1):
@@ -78,7 +100,7 @@ def run_simulation(
     return pd.Series(balance_history, index=data.index[train_size:])
 
 
-def plot_performance(balance_history):
+def plot_performance(balance_history, file_name):
     """資産推移のプロットとシャープレシオ、最大ドローダウンの計算"""
     plt.figure(figsize=(10, 6))
     plt.plot(balance_history, label="Total Assets")
@@ -86,7 +108,7 @@ def plot_performance(balance_history):
     plt.xlabel("Date")
     plt.ylabel("Assets (JPY)")
     plt.legend()
-    plt.show()
+    plt.savefig(f"/tmp/{file_name}.png")
 
     # シャープレシオ計算
     risk_free_rate = 0.01  # 年率リスクフリーレート
@@ -106,7 +128,8 @@ def plot_performance(balance_history):
     plt.xlabel("Date")
     plt.ylabel("Drawdown Ratio")
     plt.legend()
-    plt.show()
+    plt.savefig(f"/tmp/{file_name}_drawdown.png")
+    plt.close()
 
 
 def main():
@@ -116,12 +139,14 @@ def main():
     print(data.head())
 
     # リターンとそのプロット
-    plot_returns(data)
+    bukcket_name = "untusbacket"
+    plot_returns(data, "nikkei225")
 
     # シミュレーション実行
     for i in range(1, 10):
         balance_history = run_simulation(data, i / 10)
-        plot_performance(balance_history)
+        file_name = f"simulation_balance_history_{i/10}"
+        plot_performance(balance_history, file_name)
 
 
 if __name__ == "__main__":
